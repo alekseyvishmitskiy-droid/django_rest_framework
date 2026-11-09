@@ -1,82 +1,62 @@
 # django_rest_framework
 
-Серверное приложение для системы управления обучением (LMS). Проект представляет собой REST API, реализованное на Django и Django REST Framework (DRF), с полноценным CRUD-функционалом для управления курсами, уроками и профилями пользователей.
+REST API для системы управления обучением (LMS) на Django и Django REST Framework.
 
 ## Стек технологий
-* Python 3.x
-* Django 5.x
-* Django REST Framework (DRF)
-* Django-environ (управление переменными окружения)
-* SQLite (db.sqlite3)
+* Python 3.x, Django 5.x, DRF
+* Django-filter (фильтрация)
+* Django-environ (переменные окружения)
+* SQLite
 
 ## Реализованный функционал
-
-### 1. Управление пользователями (`users`)
-* Авторизация переопределена на **Email** вместо стандартного `username`.
-* Модель пользователя расширена полями: `email`, `phone`, `city`, `avatar`.
-* Реализован Generic-эндпоинт (`UpdateAPIView`) для редактирования профиля любого пользователя.
-
-### 2. Управление обучением (`lms`)
-* **Курсы**: CRUD реализован с использованием `ModelViewSet`. При просмотре курса выводится список всех связанных с ним уроков.
-* **Уроки**: CRUD реализован с использованием раздельных Generic-классов (`CreateAPIView`, `ListAPIView`, `RetrieveAPIView`, `UpdateAPIView`, `DestroyAPIView`).
-* Между курсами и уроками настроена связь «один ко многим» (`ForeignKey`).
+* **Пользователи (`users`):** Авторизация по `email`. Кастомные поля профиля. Generic-эндпоинт обновления данных.
+* **Платежи (`users`):** Модель `Payment` (курс/урок, сумма, способ оплаты). Фильтрация, сортировка по дате. Вложенная история платежей в профиле. Кастомная команда генерации данных.
+* **Обучение (`lms`):** CRUD для курсов (ViewSets) и уроков (Generics). Связь `ForeignKey`. Вложенный вывод уроков и динамический подсчет их количества (`lessons_count`) в сериализаторе курса.
 
 ---
 
-## Инструкция по локальному развертыванию
+## Локальное развертывание
 
-1. **Клонируйте репозиторий:**
-   ```bash
-   git clone https://github.com
-   cd django_rest_framework
-   ```
+```bash
+# 1. Клонирование и переход в проект
+git clone https://github.com && cd django_rest_framework
 
-2. **Cоздайте и активируйте виртуальное окружение:**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # Для Linux/macOS
-   venv\Scripts\activate     # Для Windows
-   ```
+# 2. Настройка окружения
+python -m venv venv
+venv\Scripts\activate     # Для Windows (source venv/bin/activate для Linux/macOS)
+pip install django djangorestframework pillow django-environ django-filter
 
-3. **Установите зависимости:**
-   ```bash
-   pip install django djangorestframework pillow django-environ
-   ```
+# 3. Переменные окружения (создать .env в корне)
+echo "DEBUG=True\nSECRET_KEY=django_secret_key" > .env
 
-4. **Настройте переменные окружения:**
-   Создайте файл `.env` в корневой директории и добавьте конфигурацию:
-   ```text
-   DEBUG=True
-   SECRET_KEY=ваш_секретный_ключ_django
-   ```
+# 4. Миграции и наполнение БД тестовыми платежами
+python manage.py makemigrations && python manage.py migrate
+python manage.py fill_payments
 
-5. **Выполните миграции базы данных:**
-   ```bash
-   python manage.py migrate
-   ```
-
-6. **Запустите локальный сервер:**
-   ```bash
-   python manage.py runserver
-   ```
+# 5. Запуск
+python manage.py runserver
+```
 
 ---
 
-## Примеры эндпоинтов (Тестирование в Postman)
+## Эндпоинты (Postman)
 
-### Курсы (ViewSets)
-* `GET /lms/courses/` — Получить список всех курсов
-* `POST /lms/courses/` — Создать новый курс (Передать JSON: `title`, `description`)
-* `GET /lms/courses/<id>/` — Получить детальную информацию о курсе
-* `PUT/PATCH /lms/courses/<id>/` — Редактировать курс
-* `DELETE /lms/courses/<id>/` — Удалить курс
+### Курсы & Уроки (`/lms/`)
+* `GET /lms/courses/` — Список курсов с вложенными уроками и их количеством
+* `POST /lms/courses/` — Создание курса
+* `GET|PUT|PATCH|DELETE /lms/courses/<id>/` — CRUD-операции с курсом
+* `GET /lms/lessons/` — Список уроков
+* `POST /lms/lessons/create/` — Создание урока
+* `GET /lms/lessons/<id>/` — Детали урока
+* `PUT|PATCH /lms/lessons/update/<id>/` — Редактирование урока
+* `DELETE /lms/lessons/delete/<id>/` — Удаление урока
 
-### Уроки (Generics)
-* `GET /lms/lessons/` — Получить список всех уроков
-* `POST /lms/lessons/create/` — Создать новый урок (Передать JSON: `title`, `description`, `video_url`, `course`)
-* `GET /lms/lessons/<id>/` — Получить детальную информацию об уроке
-* `PUT/PATCH /lms/lessons/update/<id>/` — Редактировать урок
-* `DELETE /lms/lessons/delete/<id>/` — Удалить урок
+### Профиль & Платежи (`/users/`)
+* `PATCH /users/update/<id>/` — Редактирование данных пользователя
+* `GET /users/profile/<id>/` — Профиль пользователя со вложенным массивом истории `payments_history`
+* `GET /users/payments/` — Полный список платежей
 
-### Профиль пользователя
-* `PATCH /users/update/<id>/` — Частичное редактирование профиля пользователя
+### Фильтрация платежей
+* `?payment_method=cash` / `?payment_method=transfer` — Фильтр по способу оплаты
+* `?paid_course=<id>` / `?paid_lesson=<id>` — Фильтр по купленной сущности
+* `?ordering=-payment_date` — Сортировка от новых платежей к старым
