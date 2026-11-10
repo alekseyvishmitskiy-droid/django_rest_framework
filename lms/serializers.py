@@ -9,10 +9,10 @@ class LessonSerializer(serializers.ModelSerializer):
 
 
 class CourseSerializer(serializers.ModelSerializer):
-    last_lesson = serializers.CharField(source='lesson_set.all.first.title', read_only=True)
+    last_lesson = serializers.CharField(source='lessons.last.title', read_only=True, default=None)
 
 
-    lessons = LessonSerializer(source='lesson_set', many=True, read_only=True)
+    lessons = LessonSerializer(many=True, read_only=True)
     lessons_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -20,13 +20,11 @@ class CourseSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_lessons_count(self, instance):
-        if instance.lesson_set.all():
-            return instance.lesson_set.all().count()
-        return 0
+        return instance.lessons.count()
 
 
 class CourseCreateSerializer(serializers.ModelSerializer):
-    lessons = LessonSerializer(many=True)
+    lessons = LessonSerializer(many=True, required=False)
 
     class Meta:
         model = Course
@@ -34,10 +32,7 @@ class CourseCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         lessons_data = validated_data.pop('lessons', [])
-
-
         course_item = Course.objects.create(**validated_data)
-
 
         for lesson in lessons_data:
             Lesson.objects.create(**lesson, course=course_item)
