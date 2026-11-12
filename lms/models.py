@@ -1,10 +1,12 @@
 from django.db import models
 from django.conf import settings
 
+
 class Course(models.Model):
     title = models.CharField(max_length=150, verbose_name='Название курса')
     preview = models.ImageField(upload_to='lms/courses/', verbose_name='Превью', blank=True, null=True)
     description = models.TextField(verbose_name='Описание', blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата последнего обновления')
 
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,

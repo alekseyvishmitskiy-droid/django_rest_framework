@@ -1,4 +1,6 @@
+from datetime import timedelta
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import viewsets, generics
@@ -9,6 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 from lms.models import Course, Lesson, Subscription
 from lms.serializers import CourseSerializer, LessonSerializer
 from lms.paginators import LMSPagination
+from lms.tasks import send_course_update_email
 from users.permissions import IsModerator, IsOwner
 
 
@@ -39,6 +42,14 @@ class CourseViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
+
+    def perform_update(self, serializer):
+        course = self.get_object()
+        should_notify = (timezone.now() - course.updated_at) > timedelta(hours=4)
+        updated_course = serializer.save()
+
+        if should_notify:
+            send_course_update_email.delay(updated_course.id)
 
 
 class LessonCreateAPIView(generics.CreateAPIView):
@@ -71,6 +82,15 @@ class LessonUpdateAPIView(generics.UpdateAPIView):
     queryset = Lesson.objects.all()
     serializer_class = LessonSerializer
     permission_classes = [IsAuthenticated, IsModerator | IsOwner]
+
+    def perform_update(self, serializer):
+        lesson = serializer.save()
+        course = lesson.course
+        if course:
+            should_notify = (timezone.now() - course.updated_at) > timedelta(hours=4)
+            course.save(update_fields=['updated_at'])
+            if should_notify:
+                send_course_update_email.delay(course.id)
 
 
 class LessonDestroyAPIView(generics.DestroyAPIView):

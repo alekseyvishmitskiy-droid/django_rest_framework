@@ -120,3 +120,34 @@ coverage html
 * `GET|PUT|PATCH /lms/lessons/<id>/` — Детали / Редактирование урока (Доступно модераторам или владельцам)
 * `DELETE /lms/lessons/delete/<id>/` — Удаление урока (Доступно только владельцу)
 * `POST /lms/subscription/` — Управление подпиской. Принимает в Body `{"course_id": <id>}`. Переключает состояние подписки текущего пользователя на курс.
+
+## Настройка Celery и периодических задач
+
+1. Добавьте настройки Redis в файл `.env`:
+   ```env
+   CELERY_BROKER_URL=redis://127.0.0.1:6379/0
+   CELERY_RESULT_BACKEND=redis://127.0.0.1:6379/0
+   ```
+2. Запустите воркер Celery (для Windows используйте флаг `--pool=solo`):
+   ```bash
+   celery -A config worker -l INFO --pool=solo
+   ```
+3. В отдельном окне терминала запустите планировщик периодических задач Celery Beat:
+   ```bash
+   celery -A config beat -l INFO -S django
+   ```
+## Настройка Celery и периодических задач
+
+1. Добавьте настройки Redis в файл `.env`:
+   ```env
+   CELERY_BROKER_URL=redis://127.0.0.1:6379/0
+   CELERY_RESULT_BACKEND=redis://127.0.0.1:6379/0
+   ```
+2. Запустите воркер Celery (для Windows используйте флаг `--pool=solo`):
+   ```bash
+   celery -A config worker -l INFO --pool=solo
+   ```
+3. В отдельном окне терминала запустите планировщик периодических задач Celery Beat:
+   ```bash
+   celery -A config beat -l INFO -S django
+   ```
