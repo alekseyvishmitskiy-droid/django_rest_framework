@@ -39,7 +39,6 @@ class Payment(models.Model):
     )
     payment_date = models.DateField(auto_now_add=True, verbose_name='Дата оплаты')
 
-
     paid_course = models.ForeignKey(
         Course,
         on_delete=models.SET_NULL,
@@ -61,6 +60,26 @@ class Payment(models.Model):
         choices=PAYMENT_METHOD_CHOICES,
         default=TRANSFER,
         verbose_name='Способ оплаты'
+    )
+
+
+    session_id = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        verbose_name='ID сессии Stripe'
+    )
+    link = models.URLField(
+        max_length=400,
+        null=True,
+        blank=True,
+        verbose_name='Ссылка на оплату'
+    )
+
+    payment_status = models.CharField(
+        max_length=50,
+        default='unpaid',
+        verbose_name='Статус оплаты'
     )
 
     class Meta:

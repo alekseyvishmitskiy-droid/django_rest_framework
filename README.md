@@ -1,13 +1,16 @@
 # django_rest_framework
 
-REST API для системы управления обучением (LMS) на Django и Django REST Framework.
+REST API для системы управления обучением (LMS) на Django и Django REST Framework с документацией OpenAPI и интеграцией платежного шлюза Stripe.
 
 ## Стек технологий
-* Python 3.x, Django 5.x, DRF
+* Python 3.x, Django 6.x, DRF
 * djangorestframework-simplejwt (JWT-авторизация)
+* drf-yasg (автогенерация документации Swagger и ReDoc)
+* Stripe API / requests (онлайн-оплата курсов и уроков)
 * coverage (анализ покрытия тестами)
 * Django-filter (фильтрация)
 * Django-environ (переменные окружения)
+* django-cors-headers (настройка CORS)
 * SQLite
 
 ## Реализованный функционал
@@ -28,9 +31,13 @@ REST API для системы управления обучением (LMS) н�
 * **Подписки на обновления:** Добавлена модель `Subscription`. Реализован эндпоинт, который работает циклично: при первом запросе активирует подписку на курс, при повторном — удаляет. При просмотре курсов возвращается динамический флаг `is_subscribed` для текущего пользователя.
 * **Пагинация:** Внедрен постраничный вывод списков курсов и уроков (класс `LMSPagination`). Лимит — 5 элементов на страницу с возможностью кастомизации через query-параметр `?page_size=`.
 
-### 4. Платежи (`users`)
-* Фильтрация списка платежей по курсу, уроку и способу оплаты. Сортировка по дате.
-* Кастомная консольная команда `python manage.py fill_payments` для быстрого наполнения БД.
+### 4. Платежи и интеграция со Stripe (`users`)
+* **Онлайн-оплата через Stripe:** Реализованы сервисные функции (`users/services.py`) для создания продукта, цены (в копейках/центах) и платежной сессии Stripe Checkout. При создании платежа ссылка на оплату (`link`) и ID сессии (`session_id`) сохраняются в БД и возвращаются пользователю.
+* **Проверка статуса платежа:** Реализован эндпоинт для получения актуального статуса оплаты сессии из Stripe API по ID платежа.
+* **Фильтрация и наполнение:** Фильтрация списка платежей по курсу, уроку и способу оплаты, сортировка по дате, а также кастомная команда `python manage.py fill_payments`.
+
+### 5. Документация API (`drf-yasg`)
+* Подключена интерактивная документация **Swagger UI** и **ReDoc** с поддержкой авторизации по `Bearer`-токену.
 
 ---
 
@@ -43,10 +50,11 @@ git clone https://github.com && cd django_rest_framework
 # 2. Настройка виртуального окружения
 python -m venv venv
 venv\Scripts\activate     # Для Windows (source venv/bin/activate для Linux/macOS)
-pip install django djangorestframework djangorestframework-simplejwt pillow django-environ django-filter coverage
+pip install django djangorestframework djangorestframework-simplejwt pillow django-environ django-filter coverage drf-yasg django-cors-headers requests
 
 # 3. Создание файла переменных окружения (.env в корне проекта)
-echo "DEBUG=True\nSECRET_KEY=django_secret_key" > .env
+# Укажите ваши значения SECRET_KEY и тестовый секретный ключ Stripe (sk_test_...)
+echo -e "DEBUG=True\nSECRET_KEY=django_secret_key\nSTRIPE_API_KEY=sk_test_your_stripe_key" > .env
 
 # 4. Миграции, загрузка фикстур групп и наполнение БД платежами
 python manage.py makemigrations
@@ -60,12 +68,20 @@ python manage.py runserver
 
 ---
 
+## Документация API
+
+После запуска сервера документация доступна по следующим адресам:
+* **Swagger UI:** `http://127.0.0` (для авторизации нажмите **Authorize** и введите `Bearer <access_token>`)
+* **ReDoc:** `http://127.0.0`
+
+---
+
 ## Запуск автотестов и анализ покрытия (Coverage)
 
-В проекте написаны интеграционные тесты (`APITestCase`), проверяющие CRUD уроков, работу валидатора сторонних ссылок, а также логику активации и деактивации подписок.
+В проекте написаны интеграционные тесты (`APITestCase`), проверяющие CRUD уроков, работу валидатора сторонних ссылок, логику подписок, а также создание платежей и проверку статуса сессии Stripe с использованием моков (`unittest.mock.patch`).
 
 ```bash
-# Выполнение тестов
+# Выполнение всех тестов
 python manage.py test
 
 # Запуск сбора статистики покрытия кода тестами
@@ -80,15 +96,17 @@ coverage html
 
 ---
 
-## Эндпоинты API (Postman)
+## Эндпоинты API
 
-### Авторизация и Профили (`/users/`)
+### Авторизация, Профили и Платежи (`/users/`)
 * `POST /users/register/` — Регистрация (Доступна без токена)
 * `POST /users/token/` — Получение JWT-токена (Вход по `email` и `password`)
 * `POST /users/token/refresh/` — Обновление JWT-токена
 * `GET /users/profile/<id>/` — Детали профиля (`payments_history` виден только владельцу)
 * `PATCH /users/update/<id>/` — Редактирование профиля (Только для владельца)
 * `GET /users/payments/` — Список платежей (`?payment_method=cash`, `?ordering=-payment_date`)
+* `POST /users/payments/create/` — Создание платежа и генерация ссылки на оплату через Stripe
+* `GET /users/payments/<id>/status/` — Проверка актуального статуса оплаты сессии в Stripe
 
 ### Курсы, Уроки и Подписки (`/lms/`)
 *Запросы ниже требуют передачи заголовка `Authorization: Bearer <access_token>`*
