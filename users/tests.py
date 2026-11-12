@@ -4,7 +4,9 @@ from rest_framework.test import APITestCase
 
 from lms.models import Course
 from users.models import Payment, User
-
+from datetime import timedelta
+from django.utils import timezone
+from users.tasks import deactivate_inactive_users
 
 class PaymentTestCase(APITestCase):
 
@@ -114,3 +116,23 @@ class PaymentTestCase(APITestCase):
                 'amount_total': 500000
             }
         )
+
+        def test_deactivate_inactive_users(self):
+            old_user = User.objects.create(
+                email='inactive@example.com',
+                is_active=True,
+                last_login=timezone.now() - timedelta(days=31)
+            )
+            active_user = User.objects.create(
+                email='active@example.com',
+                is_active=True,
+                last_login=timezone.now() - timedelta(days=5)
+            )
+
+            deactivate_inactive_users()
+
+            old_user.refresh_from_db()
+            active_user.refresh_from_db()
+
+            self.assertFalse(old_user.is_active)
+            self.assertTrue(active_user.is_active)

@@ -4,6 +4,12 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from lms.models import Course, Lesson, Subscription
+from datetime import timedelta
+from unittest.mock import patch
+from django.core import mail
+from django.utils import timezone
+from lms.models import Course, Subscription
+from lms.tasks import send_course_update_email
 
 User = get_user_model()
 
@@ -128,3 +134,12 @@ class SubscriptionTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.json()['message'], 'подписка удалена')
         self.assertFalse(Subscription.objects.filter(user=self.user, course=self.course).exists())
+
+        def test_send_course_update_email(self):
+            """Тестирование отправки писем подписчикам курса"""
+            Subscription.objects.create(user=self.user, course=self.course)
+            send_course_update_email(self.course.id)
+
+            self.assertEqual(len(mail.outbox), 1)
+            self.assertIn(self.course.title, mail.outbox[0].subject)
+            self.assertEqual(mail.outbox[0].to, [self.user.email])
