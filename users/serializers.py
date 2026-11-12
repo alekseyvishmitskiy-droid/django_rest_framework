@@ -15,7 +15,6 @@ class UserRegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         password = validated_data.pop('password', None)
 
-
         user = User(**validated_data)
 
         if password:
@@ -29,6 +28,8 @@ class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = '__all__'
+        read_only_fields = ('user', 'session_id', 'link', 'payment_status', 'payment_date')
+
 
 
 class UserProfileSerializer(serializers.ModelSerializer):

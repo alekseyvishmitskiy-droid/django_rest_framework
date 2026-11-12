@@ -1,4 +1,6 @@
 from django.shortcuts import get_object_or_404
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 from rest_framework import viewsets, generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -10,10 +12,9 @@ from lms.paginators import LMSPagination
 from users.permissions import IsModerator, IsOwner
 
 
-
 class CourseViewSet(viewsets.ModelViewSet):
     serializer_class = CourseSerializer
-    pagination_class = LMSPagination  # Задание 3: Пагинация курсов
+    pagination_class = LMSPagination
 
     def get_queryset(self):
         if self.request.user.groups.filter(name='Moderators').exists():
@@ -38,7 +39,6 @@ class CourseViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
-
 
 
 class LessonCreateAPIView(generics.CreateAPIView):
@@ -79,15 +79,40 @@ class LessonDestroyAPIView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated, ~IsModerator, IsOwner]
 
 
-
 class SubscriptionAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_summary="Управление подпиской на курс",
+        operation_description="Добавляет подписку на курс для текущего пользователя, если её нет, или удаляет, если она уже активна.",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['course_id'],
+            properties={
+                'course_id': openapi.Schema(
+                    type=openapi.TYPE_INTEGER,
+                    description='ID курса для подписки или отписки'
+                )
+            }
+        ),
+        responses={
+            200: openapi.Response(
+                description="Статус подписки успешно изменён",
+                examples={
+                    "application/json": {
+                        "message": "подписка добавлена"
+                    }
+                }
+            ),
+            400: "Не передан или некорректный course_id",
+            401: "Пользователь не авторизован",
+            404: "Курс с указанным ID не найден"
+        }
+    )
     def post(self, request, *args, **kwargs):
         user = request.user
         course_id = request.data.get('course_id')
         course_item = get_object_or_404(Course, id=course_id)
-
 
         subs_item = Subscription.objects.filter(user=user, course=course_item)
 
