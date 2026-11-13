@@ -1,17 +1,19 @@
 # django_rest_framework
 
-REST API для системы управления обучением (LMS) на Django и Django REST Framework с документацией OpenAPI и интеграцией платежного шлюза Stripe.
+REST API для системы управления обучением (LMS) на Django и Django REST Framework с документацией OpenAPI, фоновыми задачами Celery, интеграцией платежного шлюза Stripe и оркестрацией в Docker.
 
 ## Стек технологий
-* Python 3.x, Django 6.x, DRF
+* Python 3.12, Django 6.x, Django REST Framework
+* PostgreSQL (основная база данных)
+* Redis & Celery / Celery Beat (брокер сообщений и периодические фоновые задачи)
+* Docker & Docker Compose (контейнеризация и оркестрация сервисов)
 * djangorestframework-simplejwt (JWT-авторизация)
 * drf-yasg (автогенерация документации Swagger и ReDoc)
 * Stripe API / requests (онлайн-оплата курсов и уроков)
 * coverage (анализ покрытия тестами)
 * Django-filter (фильтрация)
-* Django-environ (переменные окружения)
+* Django-environ / python-dotenv (переменные окружения)
 * django-cors-headers (настройка CORS)
-* SQLite
 
 ## Реализованный функционал
 
@@ -36,34 +38,84 @@ REST API для системы управления обучением (LMS) н�
 * **Проверка статуса платежа:** Реализован эндпоинт для получения актуального статуса оплаты сессии из Stripe API по ID платежа.
 * **Фильтрация и наполнение:** Фильтрация списка платежей по курсу, уроку и способу оплаты, сортировка по дате, а также кастомная команда `python manage.py fill_payments`.
 
-### 5. Документация API (`drf-yasg`)
+### 5. Фоновые и периодические задачи (`Celery` & `Redis`)
+* **Асинхронная рассылка:** При обновлении материалов курса подписчикам автоматически отправляются уведомления на почту.
+* **Периодическая проверка активности:** Настроен планировщик `Celery Beat`, который регулярно проверяет дату последнего входа пользователей (`last_login`) и блокирует аккаунты, неактивные более 30 дней.
+
+### 6. Документация API (`drf-yasg`)
 * Подключена интерактивная документация **Swagger UI** и **ReDoc** с поддержкой авторизации по `Bearer`-токену.
 
 ---
 
-## Локальное развертывание
+## Запуск проекта через Docker (рекомендуемый способ)
+
+Проект настроен для запуска всех сервисов (`backend`, `db`, `redis`, `celery`, `celery-beat`) единой командой через Docker Compose.
+
+1. **Клонируйте репозиторий и перейдите в директорию проекта:**
+   ```bash
+   git clone <ссылка-на-ваш-репозиторий>
+   cd django_rest_framework
+   ```
+
+2. **Создайте файл `.env` на основе шаблона `.env.example`:**
+   ```bash
+   cp .env.example .env
+   ```
+   *Откройте созданный `.env` и заполните реальные значения `SECRET_KEY`, `POSTGRES_PASSWORD`, `STRIPE_API_KEY` и данные почты (при необходимости). Для работы внутри Docker оставьте `POSTGRES_HOST=db` и хост Redis `redis`.*
+
+3. **Соберите образы и запустите контейнеры в фоновом режиме:**
+   ```bash
+   docker compose up -d --build
+   ```
+   *При запуске автоматически применятся миграции базы данных и поднимутся все 5 сервисов.*
+
+4. **Проверьте статус запущенных контейнеров:**
+   ```bash
+   docker compose ps
+   ```
+
+5. **Дополнительные команды при работе с контейнерами:**
+   ```bash
+   # Создание суперпользователя внутри контейнера
+   docker compose exec backend python manage.py createsuperuser
+
+   # Загрузка фикстур групп и тестовых платежей
+   docker compose exec backend python manage.py loaddata users/fixtures/groups.json
+   docker compose exec backend python manage.py fill_payments
+
+   # Просмотр логов конкретного сервиса (например, celery)
+   docker compose logs -f celery
+
+   # Остановка и удаление контейнеров
+   docker compose down
+   ```
+
+---
+
+## Локальное развертывание (без Docker)
 
 ```bash
 # 1. Клонирование и переход в проект
-git clone https://github.com && cd django_rest_framework
+git clone <ссылка-на-ваш-репозиторий> && cd django_rest_framework
 
 # 2. Настройка виртуального окружения
 python -m venv venv
 venv\Scripts\activate     # Для Windows (source venv/bin/activate для Linux/macOS)
-pip install django djangorestframework djangorestframework-simplejwt pillow django-environ django-filter coverage drf-yasg django-cors-headers requests
+pip install -r requirements.txt
 
 # 3. Создание файла переменных окружения (.env в корне проекта)
-# Укажите ваши значения SECRET_KEY и тестовый секретный ключ Stripe (sk_test_...)
-echo -e "DEBUG=True\nSECRET_KEY=django_secret_key\nSTRIPE_API_KEY=sk_test_your_stripe_key" > .env
+# Укажите POSTGRES_HOST=localhost и CELERY_BROKER_URL=redis://127.0.0.1:6379/0
+cp .env.example .env
 
 # 4. Миграции, загрузка фикстур групп и наполнение БД платежами
-python manage.py makemigrations
 python manage.py migrate
 python manage.py loaddata users/fixtures/groups.json
 python manage.py fill_payments
 
-# 5. Запуск локального сервера
+# 5. Запуск локального сервера, воркера и планировщика (в разных окнах терминала)
 python manage.py runserver
+celery -A config worker -l INFO --pool=solo
+celery -A config beat -l INFO -S django
 ```
 
 ---
@@ -81,10 +133,10 @@ python manage.py runserver
 В проекте написаны интеграционные тесты (`APITestCase`), проверяющие CRUD уроков, работу валидатора сторонних ссылок, логику подписок, а также создание платежей и проверку статуса сессии Stripe с использованием моков (`unittest.mock.patch`).
 
 ```bash
-# Выполнение всех тестов
-python manage.py test
+# Выполнение всех тестов (через Docker)
+docker compose exec backend python manage.py test
 
-# Запуск сбора статистики покрытия кода тестами
+# Запуск сбора статистики покрытия кода тестами (локально)
 coverage run --source='.' manage.py test
 
 # Вывод отчета по покрытию в терминал
@@ -120,34 +172,3 @@ coverage html
 * `GET|PUT|PATCH /lms/lessons/<id>/` — Детали / Редактирование урока (Доступно модераторам или владельцам)
 * `DELETE /lms/lessons/delete/<id>/` — Удаление урока (Доступно только владельцу)
 * `POST /lms/subscription/` — Управление подпиской. Принимает в Body `{"course_id": <id>}`. Переключает состояние подписки текущего пользователя на курс.
-
-## Настройка Celery и периодических задач
-
-1. Добавьте настройки Redis в файл `.env`:
-   ```env
-   CELERY_BROKER_URL=redis://127.0.0.1:6379/0
-   CELERY_RESULT_BACKEND=redis://127.0.0.1:6379/0
-   ```
-2. Запустите воркер Celery (для Windows используйте флаг `--pool=solo`):
-   ```bash
-   celery -A config worker -l INFO --pool=solo
-   ```
-3. В отдельном окне терминала запустите планировщик периодических задач Celery Beat:
-   ```bash
-   celery -A config beat -l INFO -S django
-   ```
-## Настройка Celery и периодических задач
-
-1. Добавьте настройки Redis в файл `.env`:
-   ```env
-   CELERY_BROKER_URL=redis://127.0.0.1:6379/0
-   CELERY_RESULT_BACKEND=redis://127.0.0.1:6379/0
-   ```
-2. Запустите воркер Celery (для Windows используйте флаг `--pool=solo`):
-   ```bash
-   celery -A config worker -l INFO --pool=solo
-   ```
-3. В отдельном окне терминала запустите планировщик периодических задач Celery Beat:
-   ```bash
-   celery -A config beat -l INFO -S django
-   ```
