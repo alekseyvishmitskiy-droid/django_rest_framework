@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:15-alpine
-    restart: unless-stopped
+    restart: always
     env_file:
       - .env
     expose:
@@ -16,22 +16,27 @@ services:
 
   redis:
     image: redis:7-alpine
-    restart: unless-stopped
+    restart: always
     expose:
       - "6379"
     volumes:
       - redis_data:/data
 
   backend:
+    image: ${DOCKER_USERNAME}/drf-lms:latest
     build: .
-    restart: unless-stopped
-    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    restart: always
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000"
     env_file:
       - .env
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
-      - .:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
     depends_on:
       db:
         condition: service_healthy
@@ -39,26 +44,22 @@ services:
         condition: service_started
 
   celery:
-    build: .
-    restart: unless-stopped
+    image: ${DOCKER_USERNAME}/drf-lms:latest
+    restart: always
     command: celery -A config worker -l INFO
     env_file:
       - .env
-    volumes:
-      - .:/app
     depends_on:
       - db
       - redis
       - backend
 
   celery-beat:
-    build: .
-    restart: unless-stopped
+    image: ${DOCKER_USERNAME}/drf-lms:latest
+    restart: always
     command: celery -A config beat -l INFO
     env_file:
       - .env
-    volumes:
-      - .:/app
     depends_on:
       - db
       - redis
@@ -67,3 +68,5 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  static_volume:
+  media_volume:
