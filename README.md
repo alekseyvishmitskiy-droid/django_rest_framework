@@ -1,92 +1,58 @@
 # django_rest_framework
 
-REST API для системы управления обучением (LMS) на Django и Django REST Framework с документацией OpenAPI, фоновыми задачами Celery, интеграцией платежного шлюза Stripe и оркестрацией в Docker.
+REST API для системы управления обучением (LMS) на базе Django и Django REST Framework. Проект включает документацию OpenAPI, фоновые задачи Celery, интеграцию со Stripe, контейнеризацию в Docker и CI/CD через GitHub Actions.
 
 ## Стек технологий
-* Python 3.12, Django 6.x, Django REST Framework
-* PostgreSQL (основная база данных)
-* Redis & Celery / Celery Beat (брокер сообщений и периодические фоновые задачи)
-* Docker & Docker Compose (контейнеризация и оркестрация сервисов)
-* djangorestframework-simplejwt (JWT-авторизация)
-* drf-yasg (автогенерация документации Swagger и ReDoc)
-* Stripe API / requests (онлайн-оплата курсов и уроков)
-* coverage (анализ покрытия тестами)
-* Django-filter (фильтрация)
-* Django-environ / python-dotenv (переменные окружения)
-* django-cors-headers (настройка CORS)
+* **Бэкенд:** Python 3.12, Django 6.x, Django REST Framework, djangorestframework-simplejwt, drf-yasg, Django-filter, django-cors-headers
+* **База данных и брокер:** PostgreSQL, Redis & Celery / Celery Beat
+* **Продакшен и CI/CD:** Docker & Docker Compose, Gunicorn & Nginx, GitHub Actions (Flake8, автотесты, сборка и деплой)
+* **Платежи и утилиты:** Stripe API, coverage, python-dotenv
 
 ## Реализованный функционал
-
-### 1. Пользователи, JWT-авторизация и Профили
-* **Авторизация:** Вход по `email` и паролю с выдачей пары JWT-токенов (`access`, `refresh`).
-* **Регистрация:** Открытый эндпоинт создания пользователя с автоматическим безопасным хешированием паролей.
-* **Доступ к профилям:** Авторизованный пользователь может просмотреть любой профиль, но редактировать — только свой. При просмотре чужого профиля скрываются приватные финансовые логи (`payments_history`).
-
-### 2. Права доступа (Permissions)
-* **Глобальная защита:** Все эндпоинты по умолчанию требуют JWT-авторизацию.
-* **Модераторы (группа `Moderators`):** Имеют право просматривать и редактировать любые курсы и уроки, но ограничены в правах на их создание и удаление.
-* **Владельцы (Обычные пользователи):** Видят и управляют только своими объектами. При создании записи автор автоматически привязывается к полю `owner` через хук `perform_create()`.
-
-### 3. Обучение, Валидация и Пагинация (`lms`)
-* **Связи моделей:** Реализован CRUD для курсов и уроков через ForeignKey со связанным именем `related_name='lessons'`.
-* **Валидация контента:** Реализован кастомный класс-валидатор `YoutubeOnlyValidator`. Прикреплять к урокам можно исключительно ссылки на домены `youtube.com` или `youtu.be`.
-* **Подписки на обновления:** Добавлена модель `Subscription`. Реализован эндпоинт, который работает циклично: при первом запросе активирует подписку на курс, при повторном — удаляет. При просмотре курсов возвращается динамический флаг `is_subscribed` для текущего пользователя.
-* **Пагинация:** Внедрен постраничный вывод списков курсов и уроков (класс `LMSPagination`). Лимит — 5 элементов на страницу с возможностью кастомизации через query-параметр `?page_size=`.
-
-### 4. Платежи и интеграция со Stripe (`users`)
-* **Онлайн-оплата через Stripe:** Реализованы сервисные функции (`users/services.py`) для создания продукта, цены (в копейках/центах) и платежной сессии Stripe Checkout. При создании платежа ссылка на оплату (`link`) и ID сессии (`session_id`) сохраняются в БД и возвращаются пользователю.
-* **Проверка статуса платежа:** Реализован эндпоинт для получения актуального статуса оплаты сессии из Stripe API по ID платежа.
-* **Фильтрация и наполнение:** Фильтрация списка платежей по курсу, уроку и способу оплаты, сортировка по дате, а также кастомная команда `python manage.py fill_payments`.
-
-### 5. Фоновые и периодические задачи (`Celery` & `Redis`)
-* **Асинхронная рассылка:** При обновлении материалов курса подписчикам автоматически отправляются уведомления на почту.
-* **Периодическая проверка активности:** Настроен планировщик `Celery Beat`, который регулярно проверяет дату последнего входа пользователей (`last_login`) и блокирует аккаунты, неактивные более 30 дней.
-
-### 6. Документация API (`drf-yasg`)
-* Подключена интерактивная документация **Swagger UI** и **ReDoc** с поддержкой авторизации по `Bearer`-токену.
+* **Пользователи и профили:** JWT-авторизация по email/паролю, безопасная регистрация, разграничение доступа к финансовой истории (`payments_history`).
+* **Права доступа:** Глобальная защита JWT, разделение ролей для группы `Moderators` и обычных владельцев (`owner` через хук `perform_create()`).
+* **Модуль LMS:** CRUD для курсов и уроков, валидатор ссылок `YoutubeOnlyValidator` (только YouTube), динамические подписки на курсы с флагом `is_subscribed` и постраничная пагинация (`LMSPagination` по 5 элементов).
+* **Платежи (Stripe):** Создание продуктов и сессий оплаты в Stripe, проверка статуса платежа, фильтрация и кастомная команда заполнения базы `fill_payments`.
+* **Фоновые задачи:** Асинхронные рассылки уведомлений об обновлениях курсов и периодическая блокировка неактивных пользователей (более 30 дней) через Celery Beat.
+* **Документация:** Интерактивные интерфейсы Swagger UI и ReDoc.
 
 ---
 
-## Запуск проекта через Docker (рекомендуемый способ)
+## CI/CD и деплой на сервер
+Проект настроен для непрерывной интеграции и доставки с помощью GitHub Actions (`.github/workflows/ci_cd.yml`) и развернут на сервере Ubuntu с использованием Docker Compose, Gunicorn и Nginx.
 
-Проект настроен для запуска всех сервисов (`backend`, `db`, `redis`, `celery`, `celery-beat`) единой командой через Docker Compose.
+### Этапы пайплайна:
+1. **Тестирование и линтинг (`test-and-lint`):** Запуск в тестовом окружении PostgreSQL и Redis, проверка тестами Django и линтером `flake8`.
+2. **Сборка и публикация (`build-and-push`):** Сборка и отправка Docker-образа в Docker Hub при пуше в ветку `main`.
+3. **Автодеплой (`deploy`):** Подключение по SSH к серверу, обновление репозитория и перезапуск контейнеров.
 
-1. **Клонируйте репозиторий и перейдите в директорию проекта:**
+*Требуемые GitHub Secrets:* `DOCKER_USERNAME`, `DOCKER_PASSWORD`, `SERVER_HOST`, `SERVER_USER`, `SSH_PRIVATE_KEY`.
+
+---
+
+## Запуск проекта через Docker
+
+1. **Клонируйте репозиторий и перейдите в папку проекта:**
    ```bash
-   git clone <ссылка-на-ваш-репозиторий>
+   git clone https://github.com
    cd django_rest_framework
    ```
-
-2. **Создайте файл `.env` на основе шаблона `.env.example`:**
+2. **Создайте и настройте файл окружения:**
    ```bash
-   cp .env.example .env
+   cp .env.template .env
+   # Заполните SECRET_KEY, POSTGRES_PASSWORD, STRIPE_API_KEY и DOCKER_USERNAME в файле .env
    ```
-   *Откройте созданный `.env` и заполните реальные значения `SECRET_KEY`, `POSTGRES_PASSWORD`, `STRIPE_API_KEY` и данные почты (при необходимости). Для работы внутри Docker оставьте `POSTGRES_HOST=db` и хост Redis `redis`.*
-
-3. **Соберите образы и запустите контейнеры в фоновом режиме:**
+3. **Соберите и запустите контейнеры:**
    ```bash
    docker compose up -d --build
    ```
-   *При запуске автоматически применятся миграции базы данных и поднимутся все 5 сервисов.*
-
-4. **Проверьте статус запущенных контейнеров:**
+4. **Управление и инициализация данных:**
    ```bash
    docker compose ps
-   ```
-
-5. **Дополнительные команды при работе с контейнерами:**
-   ```bash
-   # Создание суперпользователя внутри контейнера
    docker compose exec backend python manage.py createsuperuser
-
-   # Загрузка фикстур групп и тестовых платежей
    docker compose exec backend python manage.py loaddata users/fixtures/groups.json
    docker compose exec backend python manage.py fill_payments
-
-   # Просмотр логов конкретного сервиса (например, celery)
-   docker compose logs -f celery
-
-   # Остановка и удаление контейнеров
+   docker compose logs -f backend
    docker compose down
    ```
 
@@ -95,24 +61,17 @@ REST API для системы управления обучением (LMS) н�
 ## Локальное развертывание (без Docker)
 
 ```bash
-# 1. Клонирование и переход в проект
-git clone <ссылка-на-ваш-репозиторий> && cd django_rest_framework
-
-# 2. Настройка виртуального окружения
+git clone https://github.com && cd django_rest_framework
 python -m venv venv
-venv\Scripts\activate     # Для Windows (source venv/bin/activate для Linux/macOS)
+source venv/bin/activate  # или venv\Scripts\activate для Windows
 pip install -r requirements.txt
+cp .env.template .env  # Укажите POSTGRES_HOST=localhost и CELERY_BROKER_URL=redis://127.0.0.1:6379/0
 
-# 3. Создание файла переменных окружения (.env в корне проекта)
-# Укажите POSTGRES_HOST=localhost и CELERY_BROKER_URL=redis://127.0.0.1:6379/0
-cp .env.example .env
-
-# 4. Миграции, загрузка фикстур групп и наполнение БД платежами
 python manage.py migrate
 python manage.py loaddata users/fixtures/groups.json
 python manage.py fill_payments
 
-# 5. Запуск локального сервера, воркера и планировщика (в разных окнах терминала)
+# Запуск сервисов в разных терминалах:
 python manage.py runserver
 celery -A config worker -l INFO --pool=solo
 celery -A config beat -l INFO -S django
@@ -120,55 +79,31 @@ celery -A config beat -l INFO -S django
 
 ---
 
-## Документация API
+## Документация API и тесты
 
-После запуска сервера документация доступна по следующим адресам:
-* **Swagger UI:** `http://127.0.0` (для авторизации нажмите **Authorize** и введите `Bearer <access_token>`)
+* **Swagger UI:** `http://127.0.0` *(Authorization: Bearer <access_token>)*
 * **ReDoc:** `http://127.0.0`
+*(На удаленном сервере замените `127.0.0.1:8000` на IP-адрес сервера)*
 
----
-
-## Запуск автотестов и анализ покрытия (Coverage)
-
-В проекте написаны интеграционные тесты (`APITestCase`), проверяющие CRUD уроков, работу валидатора сторонних ссылок, логику подписок, а также создание платежей и проверку статуса сессии Stripe с использованием моков (`unittest.mock.patch`).
-
+**Запуск тестов и покрытие:**
 ```bash
-# Выполнение всех тестов (через Docker)
 docker compose exec backend python manage.py test
-
-# Запуск сбора статистики покрытия кода тестами (локально)
-coverage run --source='.' manage.py test
-
-# Вывод отчета по покрытию в терминал
-coverage report
-
-# Генерация визуального HTML-отчета (создаст папку htmlcov/)
-coverage html
+coverage run --source='.' manage.py test && coverage report && coverage html
 ```
 
 ---
 
-## Эндпоинты API
+## Основные эндпоинты API
 
 ### Авторизация, Профили и Платежи (`/users/`)
-* `POST /users/register/` — Регистрация (Доступна без токена)
-* `POST /users/token/` — Получение JWT-токена (Вход по `email` и `password`)
-* `POST /users/token/refresh/` — Обновление JWT-токена
-* `GET /users/profile/<id>/` — Детали профиля (`payments_history` виден только владельцу)
-* `PATCH /users/update/<id>/` — Редактирование профиля (Только для владельца)
-* `GET /users/payments/` — Список платежей (`?payment_method=cash`, `?ordering=-payment_date`)
-* `POST /users/payments/create/` — Создание платежа и генерация ссылки на оплату через Stripe
-* `GET /users/payments/<id>/status/` — Проверка актуального статуса оплаты сессии в Stripe
+* `POST /users/register/` — Регистрация
+* `POST /users/token/` & `POST /users/token/refresh/` — Получение и обновление JWT-токенов
+* `GET /users/profile/<id>/` & `PATCH /users/update/<id>/` — Просмотр и редактирование профиля
+* `GET /users/payments/` & `POST /users/payments/create/` — Список платежей и создание оплаты через Stripe
+* `GET /users/payments/<id>/status/` — Проверка статуса платежа в Stripe
 
-### Курсы, Уроки и Подписки (`/lms/`)
-*Запросы ниже требуют передачи заголовка `Authorization: Bearer <access_token>`*
-
-* `GET /lms/courses/` — Список курсов с постраничной пагинацией (включает поля `lessons_count` и `is_subscribed`)
-* `POST /lms/courses/` — Создание курса (Запрещено модераторам)
-* `GET|PUT|PATCH /lms/courses/<id>/` — Детали / Редактирование курса (Доступно модераторам или владельцам)
-* `DELETE /lms/courses/<id>/` — Удаление курса (Доступно только владельцу)
-* `GET /lms/lessons/` — Список уроков с постраничной пагинацией
-* `POST /lms/lessons/create/` — Создание урока с валидацией YouTube-ссылки (Запрещено модераторам)
-* `GET|PUT|PATCH /lms/lessons/<id>/` — Детали / Редактирование урока (Доступно модераторам или владельцам)
-* `DELETE /lms/lessons/delete/<id>/` — Удаление урока (Доступно только владельцу)
-* `POST /lms/subscription/` — Управление подпиской. Принимает в Body `{"course_id": <id>}`. Переключает состояние подписки текущего пользователя на курс.
+### Курсы, Уроки и Подписки (`/lms/`) *(требуется Bearer-токен)*
+* `GET|POST /lms/courses/` — Список (с пагинацией и флагами подписок) и создание курсов
+* `GET|PUT|PATCH|DELETE /lms/courses/<id>/` — Управление отдельным курсом
+* `GET|POST /lms/lessons/` & `GET|PUT|PATCH|DELETE /lms/lessons/<id>/` — Управление уроками (с валидацией YouTube-ссылок)
+* `POST /lms/subscription/` — Управление подпиской на курс (`{"course_id": <id>}`)

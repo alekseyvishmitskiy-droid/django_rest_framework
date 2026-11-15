@@ -221,3 +221,6 @@ __marimo__/
 
 coverage.txt
 .idea/
+
+staticfiles/
+media/

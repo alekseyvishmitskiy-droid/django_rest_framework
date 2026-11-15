@@ -6,20 +6,12 @@ STRIPE_BASE_URL = "https://stripe.com"
 
 
 def _get_headers():
-    return {
-        "Authorization": f"Bearer {settings.STRIPE_API_KEY}"
-    }
+    return {"Authorization": f"Bearer {settings.STRIPE_API_KEY}"}
 
 
 def _handle_stripe_request(method, url, data=None):
     try:
-        response = requests.request(
-            method=method,
-            url=url,
-            headers=_get_headers(),
-            data=data,
-            timeout=15
-        )
+        response = requests.request(method=method, url=url, headers=_get_headers(), data=data, timeout=15)
         response.raise_for_status()
         return response.json()
     except requests.HTTPError as exc:

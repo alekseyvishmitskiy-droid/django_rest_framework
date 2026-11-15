@@ -11,13 +11,17 @@ def send_course_update_email(course_id):
     if not course:
         return
 
-    subscriptions = Subscription.objects.filter(course=course).select_related('user')
+    subscriptions = Subscription.objects.filter(course=course).select_related("user")
     recipient_list = [sub.user.email for sub in subscriptions if sub.user.email]
 
     if recipient_list:
         send_mail(
-            subject=f'Обновление курса «{course.title}»',
-            message=f'Материалы курса «{course.title}» были обновлены. Зайдите на платформу, чтобы ознакомиться с изменениями.',
+            subject=f"Обновление курса «{course.title}»",
+            message=(
+                f"Курс «{course.title}» был обновлен. "
+                "Заходите на платформу, чтобы ознакомиться с новыми материалами."
+            ),
+
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=recipient_list,
             fail_silently=False,
