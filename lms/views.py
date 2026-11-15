@@ -104,7 +104,10 @@ class SubscriptionAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="Управление подпиской на курс",
-        operation_description="Добавляет подписку на курс для текущего пользователя, если её нет, или удаляет, если она уже активна.",
+        operation_description=(
+            "Активирует подписку текущего пользователя на обновления курса, "
+            "если подписки нет, или удаляет её при повторном запросе."
+        ),
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             required=["course_id"],

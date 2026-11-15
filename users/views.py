@@ -91,7 +91,10 @@ class PaymentStatusAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="Проверка статуса платежа в Stripe",
-        operation_description="Запрашивает актуальный статус сессии в Stripe API и обновляет поле payment_status в базе данных.",
+        operation_description=(
+            "Запрашивает актуальный статус сессии в Stripe API "
+            "и обновляет поле payment_status в базе данных."
+        ),
         responses={
             200: openapi.Response(
                 description="Актуальный статус платежа",
