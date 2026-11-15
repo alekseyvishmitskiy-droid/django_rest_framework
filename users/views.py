@@ -14,7 +14,7 @@ from users.serializers import (
     UserProfileSerializer,
     UserSerializer,
     UserRegisterSerializer,
-    UserPublicProfileSerializer
+    UserPublicProfileSerializer,
 )
 from users.permissions import IsOwnerOrReadOnly
 from users.services import (
@@ -54,8 +54,8 @@ class PaymentListAPIView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     filter_backends = [DjangoFilterBackend, OrderingFilter]
-    filterset_fields = ('paid_course', 'paid_lesson', 'payment_method')
-    ordering_fields = ('payment_date',)
+    filterset_fields = ("paid_course", "paid_lesson", "payment_method")
+    ordering_fields = ("payment_date",)
 
 
 class PaymentCreateAPIView(generics.CreateAPIView):
@@ -67,9 +67,13 @@ class PaymentCreateAPIView(generics.CreateAPIView):
         payment = serializer.save(user=self.request.user)
 
         if payment.paid_course:
-            product_name = getattr(payment.paid_course, 'title', None) or getattr(payment.paid_course, 'name', 'Оплата курса')
+            product_name = getattr(payment.paid_course, "title", None) or getattr(
+                payment.paid_course, "name", "Оплата курса"
+            )
         elif payment.paid_lesson:
-            product_name = getattr(payment.paid_lesson, 'title', None) or getattr(payment.paid_lesson, 'name', 'Оплата урока')
+            product_name = getattr(payment.paid_lesson, "title", None) or getattr(
+                payment.paid_lesson, "name", "Оплата урока"
+            )
         else:
             product_name = "Оплата обучения"
 
@@ -97,35 +101,35 @@ class PaymentStatusAPIView(APIView):
                         "session_id": "cs_test_...",
                         "payment_status": "paid",
                         "status": "complete",
-                        "amount_total": 500000
+                        "amount_total": 500000,
                     }
-                }
+                },
             ),
             400: "Для платежа не создана сессия Stripe или ошибка запроса к Stripe API",
             401: "Пользователь не авторизован",
-            404: "Платеж не найден"
-        }
+            404: "Платеж не найден",
+        },
     )
     def get(self, request, pk):
         payment = get_object_or_404(Payment, pk=pk, user=request.user)
 
         if not payment.session_id:
             return Response(
-                {"detail": "Для этого платежа не создана сессия Stripe."},
-                status=status.HTTP_400_BAD_REQUEST
+                {"detail": "Для этого платежа не создана сессия Stripe."}, status=status.HTTP_400_BAD_REQUEST
             )
 
         session_data = retrieve_stripe_session(payment.session_id)
         stripe_status = session_data.get("payment_status", "unpaid")
 
-
         payment.payment_status = stripe_status
         payment.save()
 
-        return Response({
-            "payment_id": payment.id,
-            "session_id": payment.session_id,
-            "payment_status": payment.payment_status,
-            "status": session_data.get("status"),
-            "amount_total": session_data.get("amount_total"),
-        })
+        return Response(
+            {
+                "payment_id": payment.id,
+                "session_id": payment.session_id,
+                "payment_status": payment.payment_status,
+                "status": session_data.get("status"),
+                "amount_total": session_data.get("amount_total"),
+            }
+        )

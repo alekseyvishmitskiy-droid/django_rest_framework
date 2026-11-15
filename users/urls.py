@@ -14,13 +14,12 @@ from users.views import (
 app_name = UsersConfig.name
 
 urlpatterns = [
-    path('register/', UserRegisterView.as_view(), name='register'),
-    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-
-    path('update/<int:pk>/', UserUpdateAPIView.as_view(), name='user-update'),
-    path('payments/', PaymentListAPIView.as_view(), name='payment-list'),
-    path('payments/create/', PaymentCreateAPIView.as_view(), name='payment-create'),
-    path('payments/<int:pk>/status/', PaymentStatusAPIView.as_view(), name='payment-status'),
-    path('profile/<int:pk>/', UserProfileRetrieveAPIView.as_view(), name='user-profile'),
+    path("register/", UserRegisterView.as_view(), name="register"),
+    path("token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("update/<int:pk>/", UserUpdateAPIView.as_view(), name="user-update"),
+    path("payments/", PaymentListAPIView.as_view(), name="payment-list"),
+    path("payments/create/", PaymentCreateAPIView.as_view(), name="payment-create"),
+    path("payments/<int:pk>/status/", PaymentStatusAPIView.as_view(), name="payment-status"),
+    path("profile/<int:pk>/", UserProfileRetrieveAPIView.as_view(), name="user-profile"),
 ]

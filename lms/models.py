@@ -3,50 +3,50 @@ from django.conf import settings
 
 
 class Course(models.Model):
-    title = models.CharField(max_length=150, verbose_name='Название курса')
-    preview = models.ImageField(upload_to='lms/courses/', verbose_name='Превью', blank=True, null=True)
-    description = models.TextField(verbose_name='Описание', blank=True, null=True)
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата последнего обновления')
+    title = models.CharField(max_length=150, verbose_name="Название курса")
+    preview = models.ImageField(upload_to="lms/courses/", verbose_name="Превью", blank=True, null=True)
+    description = models.TextField(verbose_name="Описание", blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата последнего обновления")
 
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='courses',
+        related_name="courses",
         blank=True,
         null=True,
-        verbose_name='Владелец'
+        verbose_name="Владелец",
     )
 
     class Meta:
-        verbose_name = 'Курс'
-        verbose_name_plural = 'Курсы'
-        ordering = ['id']
+        verbose_name = "Курс"
+        verbose_name_plural = "Курсы"
+        ordering = ["id"]
 
     def __str__(self):
         return self.title
 
 
 class Lesson(models.Model):
-    title = models.CharField(max_length=150, verbose_name='Название урока')
-    description = models.TextField(verbose_name='Описание', blank=True, null=True)
-    preview = models.ImageField(upload_to='lms/lessons/', verbose_name='Превью', blank=True, null=True)
-    video_url = models.URLField(verbose_name='Ссылка на видео', blank=True, null=True)
+    title = models.CharField(max_length=150, verbose_name="Название урока")
+    description = models.TextField(verbose_name="Описание", blank=True, null=True)
+    preview = models.ImageField(upload_to="lms/lessons/", verbose_name="Превью", blank=True, null=True)
+    video_url = models.URLField(verbose_name="Ссылка на видео", blank=True, null=True)
 
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='lessons', verbose_name='Курс')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="lessons", verbose_name="Курс")
 
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='lessons',
+        related_name="lessons",
         blank=True,
         null=True,
-        verbose_name='Владелец'
+        verbose_name="Владелец",
     )
 
     class Meta:
-        verbose_name = 'Урок'
-        verbose_name_plural = 'Уроки'
-        ordering = ['id']
+        verbose_name = "Урок"
+        verbose_name_plural = "Уроки"
+        ordering = ["id"]
 
     def __str__(self):
         return self.title
@@ -54,22 +54,14 @@ class Lesson(models.Model):
 
 class Subscription(models.Model):
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='subscriptions',
-        verbose_name='Пользователь'
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="subscriptions", verbose_name="Пользователь"
     )
-    course = models.ForeignKey(
-        Course,
-        on_delete=models.CASCADE,
-        related_name='subscriptions',
-        verbose_name='Курс'
-    )
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="subscriptions", verbose_name="Курс")
 
     class Meta:
-        verbose_name = 'Подписка'
-        verbose_name_plural = 'Подписки'
-        unique_together = ('user', 'course')
+        verbose_name = "Подписка"
+        verbose_name_plural = "Подписки"
+        unique_together = ("user", "course")
 
     def __str__(self):
         return f"{self.user} подписан на {self.course}"

@@ -10,10 +10,10 @@ class UserRegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'phone', 'city', 'avatar', 'password']
+        fields = ["id", "email", "phone", "city", "avatar", "password"]
 
     def create(self, validated_data):
-        password = validated_data.pop('password', None)
+        password = validated_data.pop("password", None)
 
         user = User(**validated_data)
 
@@ -27,26 +27,25 @@ class UserRegisterSerializer(serializers.ModelSerializer):
 class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
-        fields = '__all__'
-        read_only_fields = ('user', 'session_id', 'link', 'payment_status', 'payment_date')
-
+        fields = "__all__"
+        read_only_fields = ("user", "session_id", "link", "payment_status", "payment_date")
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
-    payments_history = PaymentSerializer(source='payments', many=True, read_only=True)
+    payments_history = PaymentSerializer(source="payments", many=True, read_only=True)
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'phone', 'city', 'avatar', 'payments_history']
+        fields = ["id", "username", "email", "phone", "city", "avatar", "payments_history"]
 
 
 class UserPublicProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'phone', 'city', 'avatar']
+        fields = ["id", "username", "email", "phone", "city", "avatar"]
 
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'phone', 'city', 'avatar']
+        fields = ["id", "username", "email", "phone", "city", "avatar"]
